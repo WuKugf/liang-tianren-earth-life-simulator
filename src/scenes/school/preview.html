@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>玉东新区金榜小学 · 场景预览</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1117; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; color: #eaeef3; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  .panel {
+    position: fixed; top: 14px; left: 14px; z-index: 10;
+    background: rgba(18, 24, 33, 0.82);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; padding: 12px 14px;
+    backdrop-filter: blur(8px); max-width: 280px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.4);
+  }
+  .panel h1 { font-size: 15px; margin: 0 0 2px; font-weight: 700; letter-spacing: .5px; }
+  .panel .sub { font-size: 11px; color: #8fa3b8; margin-bottom: 10px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .row-label { font-size: 11px; color: #8fa3b8; width: 100%; margin-bottom: 2px; }
+  button {
+    font-family: inherit; font-size: 11px; color: #d8e2ec; cursor: pointer;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 7px; padding: 5px 9px; transition: .15s;
+  }
+  button:hover { background: rgba(120,190,255,0.2); border-color: rgba(120,190,255,0.5); }
+  button.active { background: #2f7f86; border-color: #4eaab2; color: #fff; }
+
+  #stats {
+    position: fixed; bottom: 14px; left: 14px; z-index: 10;
+    font-size: 11px; color: #93a6ba; background: rgba(18,24,33,0.75);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 12px;
+    font-variant-numeric: tabular-nums; line-height: 1.6;
+  }
+  #hint {
+    position: fixed; bottom: 14px; right: 14px; z-index: 10;
+    font-size: 11px; color: #93a6ba; background: rgba(18,24,33,0.75);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 12px;
+  }
+  #error {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    align-items: center; justify-content: center; padding: 40px;
+    background: #0d1117;
+  }
+  #error .box {
+    max-width: 620px; background: #161d27; border: 1px solid #8b3a3a;
+    border-radius: 12px; padding: 22px 26px; font-size: 13px; line-height: 1.8;
+  }
+  #error h2 { color: #ff8a80; font-size: 16px; margin: 0 0 10px; }
+  #error code { background: #0b1016; padding: 2px 6px; border-radius: 4px; color: #9fd3ff; }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel">
+  <h1>玉东新区金榜小学</h1>
+  <div class="sub">独立场景预览 · 1 单位 = 1 米</div>
+
+  <div class="row">
+    <span class="row-label">视角</span>
+    <button data-cam="aerial" class="active">校园鸟瞰</button>
+    <button data-cam="gate">正门</button>
+    <button data-cam="plaza">广场</button>
+    <button data-cam="classroom">教室内</button>
+    <button data-cam="corridor">连廊</button>
+    <button data-cam="track">跑道</button>
+    <button data-cam="basketball">篮球场</button>
+    <button data-cam="soccer">足球场</button>
+    <button data-cam="gym">体育馆</button>
+  </div>
+
+  <div class="row" style="margin-top:4px">
+    <span class="row-label">时间</span>
+    <button data-phase="dawn">清晨</button>
+    <button data-phase="morning" class="active">上午</button>
+    <button data-phase="noon">中午</button>
+    <button data-phase="afternoon">下午</button>
+    <button data-phase="dusk">傍晚</button>
+    <button data-phase="night">夜晚</button>
+  </div>
+</div>
+
+<div id="stats">加载中…</div>
+<div id="hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+
+<div id="error">
+  <div class="box">
+    <h2>场景加载失败</h2>
+    <div id="error-msg"></div>
+    <p>本页使用 ES Module，无法通过 <code>file://</code> 直接双击打开。请在本目录启动静态服务器，例如：</p>
+    <p><code>cd C:\Users\lily\.trae-cn\assistant\earth-life-simulator</code><br />
+    <code>python -m http.server 8080</code><br />
+    然后访问 <code>http://localhost:8080/src/scenes/school/preview.html</code></p>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createScene, meta } from './index.js';
+
+// ---------------------------------------------------------------- 基础三件套
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 1600);
+camera.position.set(70, 96, 150);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2, 10);
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.minDistance = 2;
+controls.maxDistance = 420;
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.update();
+
+// ---------------------------------------------------------------- 预览用天空与光照
+const hemi = new THREE.HemisphereLight(0xdfefff, 0x5b6b52, 0.75);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2d6, 1.9);
+sun.position.set(90, 120, 70);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 10;
+sun.shadow.camera.far = 400;
+const d = 170;
+sun.shadow.camera.left = -d;
+sun.shadow.camera.right = d;
+sun.shadow.camera.top = d;
+sun.shadow.camera.bottom = -d;
+sun.shadow.bias = -0.0006;
+scene.add(sun);
+scene.add(sun.target);
+
+const skyGeo = new THREE.SphereGeometry(700, 24, 16);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: {
+    top: { value: new THREE.Color(0x5aa7e8) },
+    bottom: { value: new THREE.Color(0xdfe9f2) },
+  },
+  vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform vec3 top; uniform vec3 bottom; varying vec3 vP;
+    void main(){ float h = normalize(vP).y * 0.5 + 0.5; gl_FragColor = vec4(mix(bottom, top, pow(clamp(h,0.0,1.0), 0.9)), 1.0); }`,
+  depthWrite: false,
+});
+const sky = new THREE.Mesh(skyGeo, skyMat);
+scene.add(sky);
+
+// ---------------------------------------------------------------- 简化时间系统（stub）
+const PHASES = {
+  dawn:      { hour: 6.2,  sky: [0x8fb4d8, 0xf3d2b0], sun: 0xffd2a8, si: 0.85, amb: 0x9fb4cc, ai: 0.55, fog: 0xf3ddc8, fd: 0.0022, sc: 0xffd9b0 },
+  morning:   { hour: 9.0,  sky: [0x4f9be0, 0xdfeaf3], sun: 0xfff3da, si: 1.85, amb: 0xcfe2f5, ai: 0.8,  fog: 0xdbe8f4, fd: 0.0011, sc: 0xfff4dd },
+  noon:      { hour: 12.5, sky: [0x3d8ee0, 0xe8f1f8], sun: 0xffffff, si: 2.15, amb: 0xd8ecff, ai: 0.85, fog: 0xe6f0f8, fd: 0.0009, sc: 0xfffdf5 },
+  afternoon: { hour: 15.6, sky: [0x5b9ad8, 0xf0e6d6], sun: 0xffe6bd, si: 1.7,  amb: 0xdcd2c2, ai: 0.78, fog: 0xf0e6d4, fd: 0.0012, sc: 0xffe9c8 },
+  dusk:      { hour: 18.4, sky: [0x3f5680, 0xf0a774], sun: 0xff9a5c, si: 0.85, amb: 0x9a8298, ai: 0.55, fog: 0xe0a680, fd: 0.0022, sc: 0xffb070 },
+  night:     { hour: 21.5, sky: [0x0a1424, 0x1d2a3c], sun: 0x9fb6d8, si: 0.18, amb: 0x36455e, ai: 0.42, fog: 0x14202f, fd: 0.0034, sc: 0x8fa8c8 },
+};
+
+let phaseKey = 'morning';
+let phaseMix = 1;
+const current = { sun: new THREE.Color(), amb: new THREE.Color(), fog: new THREE.Color(), top: new THREE.Color(), bottom: new THREE.Color() };
+
+function applyPhaseVisuals(dt) {
+  const p = PHASES[phaseKey];
+  current.sun.setHex(p.sun);
+  current.amb.setHex(p.amb);
+  current.fog.setHex(p.fog);
+  current.top.setHex(p.sky[0]);
+  current.bottom.setHex(p.sky[1]);
+  sun.color.copy(current.sun);
+  sun.intensity = p.si;
+  hemi.color.copy(current.amb);
+  hemi.intensity = p.ai;
+  scene.fog = new THREE.FogExp2(current.fog, p.fd);
+  skyMat.uniforms.top.value.copy(current.top);
+  skyMat.uniforms.bottom.value.copy(current.bottom);
+}
+
+const timeStub = {
+  getState() {
+    const p = PHASES[phaseKey];
+    return {
+      hour: p.hour,
+      phase: phaseKey,
+      isNight: phaseKey === 'night',
+      sunColor: current.sun,
+      sunIntensity: p.si,
+      ambientColor: current.amb,
+      ambientIntensity: p.ai,
+      skyColor: current.top,
+      fogColor: current.fog,
+      fogDensity: p.fd,
+    };
+  },
+};
+
+// ---------------------------------------------------------------- 创建场景（stub ctx）
+const interactables = [];
+const colliders = [];
+const ctx = {
+  THREE,
+  scene,
+  time: timeStub,
+  player: { position: new THREE.Vector3(0, 0, 100) },
+  registerInteractable: (it) => interactables.push(it),
+  registerCollider: (c) => colliders.push(c),
+};
+
+const t0 = performance.now();
+const api = createScene(ctx);
+scene.add(api.group);
+const buildMs = Math.round(performance.now() - t0);
+
+// ---------------------------------------------------------------- 视角预设
+const CAMS = {
+  aerial:     { pos: [70, 96, 150],  target: [0, 2, 10] },
+  gate:       { pos: [2, 7, 146],    target: [2, 4, 104] },
+  plaza:      { pos: [-28, 12, 118], target: [2, 3, 60] },
+  classroom:  { pos: [-84, 1.65, 22.4], target: [-84, 1.45, 13.4] },
+  corridor:   { pos: [-20, 1.7, 8],  target: [-60, 1.6, 8] },
+  track:      { pos: [30, 9, -6],    target: [78, 0, -52] },
+  basketball: { pos: [48, 6.5, -27], target: [48, 0.6, -10] },
+  soccer:     { pos: [78, 9, -18],   target: [78, 0, -52] },
+  gym:        { pos: [112, 14, -68], target: [112, 5, -112] },
+};
+
+function setCam(name) {
+  const c = CAMS[name];
+  if (!c) return;
+  camera.position.set(...c.pos);
+  controls.target.set(...c.target);
+  controls.update();
+}
+
+// ---------------------------------------------------------------- UI
+document.querySelectorAll('[data-cam]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-cam]').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    setCam(btn.dataset.cam);
+  });
+});
+document.querySelectorAll('[data-phase]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-phase]').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    phaseKey = btn.dataset.phase;
+  });
+});
+
+// ---------------------------------------------------------------- 渲染循环
+const statsEl = document.getElementById('stats');
+let frames = 0;
+let fpsTime = 0;
+let fps = 0;
+const clock = new THREE.Clock();
+
+function animate() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  applyPhaseVisuals(dt);
+  api.update(dt, clock.elapsedTime);
+  controls.update();
+  renderer.render(scene, camera);
+
+  frames++;
+  fpsTime += dt;
+  if (fpsTime > 0.5) {
+    fps = Math.round(frames / fpsTime);
+    frames = 0;
+    fpsTime = 0;
+    const info = renderer.info;
+    statsEl.innerHTML =
+      `FPS <b style="color:#8ee6a0">${fps}</b> · Draw Call <b>${info.render.calls}</b> · 三角面 <b>${(info.render.triangles / 1000).toFixed(1)}k</b><br>` +
+      `交互点 ${api.interactables.length} 个 · 碰撞体 ${colliders.length} 个 · 场景构建 ${buildMs}ms<br>` +
+      `当前时段：${phaseKey} · 出生点 (${meta.spawn.x}, ${meta.spawn.z})`;
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// 便于调试
+window.__school = { scene, camera, api, interactables, colliders };
+</script>
+
+<script>
+window.addEventListener('error', (e) => {
+  const box = document.getElementById('error');
+  const msg = document.getElementById('error-msg');
+  if (box && msg) {
+    box.style.display = 'flex';
+    msg.textContent = e.message || String(e.error || e);
+  }
+});
+</script>
+</body>
+</html>

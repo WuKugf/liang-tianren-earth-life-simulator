@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>梁添任的地球生活模拟器</title>
+  <meta name="description" content="以梁添任为主角的 3D 地球生活模拟：阳光生活区、十字街夜市、金榜小学、奥园中央墅。" />
+  <link rel="stylesheet" href="./styles/main.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas" aria-label="3D 生活世界"></canvas>
+
+  <div id="ui-root"></div>
+
+  <div id="start-screen">
+    <div class="cine-frame">
+      <div class="cine-bar top"></div>
+      <div class="cine-bar bottom"></div>
+    </div>
+    <div class="ss-vignette"></div>
+    <div class="ss-grain"></div>
+    <div class="ss-wipe"></div>
+
+    <header class="ss-top">
+      <span class="ss-studio">TRAE PICTURES · 生活影像</span>
+      <span class="ss-place">玉林 · 玉东新区 · 黄昏</span>
+    </header>
+
+    <div class="ss-center">
+      <p class="ss-kicker">一个少年的地球生活</p>
+      <h1 class="ss-title">梁添任的<br />地球生活模拟器</h1>
+      <div class="ss-line"></div>
+      <p class="ss-sub">EARTH&nbsp;&nbsp;LIFE&nbsp;&nbsp;SIMULATOR</p>
+      <p class="ss-desc">清晨从奥园中央墅出发，穿过十字街的烟火气，去金榜小学上学。<br />跳绳、投篮、逛夜市，看天色从黄昏走到夜晚。</p>
+    </div>
+
+    <nav class="ss-menu" aria-label="模式选择">
+      <button class="ss-menu-item" data-mode="story" disabled>
+        <span class="ss-index">01</span>
+        <span class="ss-label">剧情模式<em>跟着添任的一天，完成生活任务</em></span>
+        <span class="ss-arrow">›</span>
+      </button>
+      <button class="ss-menu-item" data-mode="normal" disabled>
+        <span class="ss-index">02</span>
+        <span class="ss-label">普通模式<em>自由生活，想去哪里就去哪里</em></span>
+        <span class="ss-arrow">›</span>
+      </button>
+      <button class="ss-menu-item small" data-menu="help" disabled>
+        <span class="ss-index">03</span>
+        <span class="ss-label">操作说明<em>键位、相机、互动与存档</em></span>
+        <span class="ss-arrow">›</span>
+      </button>
+    </nav>
+
+    <footer class="ss-footer">
+      <div class="ss-status">
+        <span class="ss-dot"></span>
+        <span data-start-status>正在铺好今天的阳光…</span>
+      </div>
+      <div class="ss-hint">WASD 移动 · Shift 跑步 · 空格 跳跃 · E 互动 · C 换装 · 拖动鼠标旋转视角</div>
+      <div class="ss-caption">建议佩戴耳机 · 进度自动保存在本地</div>
+    </footer>
+
+    <div class="ss-help" data-ss-help>
+      <div class="ss-help-card">
+        <h2>操作与玩法</h2>
+        <ul>
+          <li><b>移动</b> WASD / 方向键；按住 Shift 跑步，消耗体力。</li>
+          <li><b>视角</b> 第三人称，鼠标拖动或 Q / E 旋转，滚轮拉近拉远（不会进入第一人称）。</li>
+          <li><b>互动</b> 靠近发光提示点按 E：跳绳、投篮、学习、睡觉、看电视、和 NPC 聊天。</li>
+          <li><b>生活</b> C 换装、T 时间加速、1/2/3 切换生活区 / 金榜小学 / 奥园中央墅。</li>
+          <li><b>剧情模式</b> 屏幕左侧会出现今天的任务，跟着提示走完整的一天。</li>
+        </ul>
+        <button class="ss-help-close">返回</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="file-protocol-tip" hidden>
+    <div class="fpt-card">
+      <h2>请用本地静态服务器打开</h2>
+      <p>浏览器不允许 <code>file://</code> 直接加载 ES Module。请在项目目录运行：</p>
+      <pre>node server.cjs 8080</pre>
+      <p>然后访问 <code>http://localhost:8080</code>；也可以双击项目里的「启动预览.bat」。</p>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      if (location.protocol === 'file:') {
+        document.getElementById('file-protocol-tip').hidden = false;
+        document.getElementById('start-screen').style.display = 'none';
+      }
+    })();
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

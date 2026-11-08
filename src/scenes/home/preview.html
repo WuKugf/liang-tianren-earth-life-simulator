@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>预览 · 奥园中央墅 · 梁添任的家</title>
+<style>
+  :root {
+    --ink: #25352e;
+    --muted: #6c7c72;
+    --card: rgba(255, 252, 244, 0.92);
+    --line: rgba(72, 96, 80, 0.16);
+    --accent: #4f8f6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe9df; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; color: var(--ink); }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+  .panel {
+    position: fixed; top: 16px; left: 16px; z-index: 10;
+    width: 280px; max-height: calc(100% - 32px); overflow: auto;
+    background: var(--card); backdrop-filter: blur(10px);
+    border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 18px 44px rgba(35, 60, 45, 0.16);
+    padding: 16px 16px 14px;
+  }
+  .panel h1 { margin: 0 0 2px; font-size: 17px; letter-spacing: .02em; }
+  .panel .sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .group { border-top: 1px dashed var(--line); padding-top: 10px; margin-top: 10px; }
+  .group-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; letter-spacing: .06em; }
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  input[type="range"] { flex: 1; accent-color: var(--accent); }
+  .value { min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  button {
+    border: 1px solid var(--line); background: #fffdf7; color: var(--ink);
+    border-radius: 9px; padding: 7px 6px; font-size: 12px; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease;
+  }
+  button:hover { background: #f2f8f0; border-color: rgba(79, 143, 107, .45); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: #eef6ee; border-color: rgba(79, 143, 107, .4); }
+  .hint { font-size: 11px; line-height: 1.6; color: var(--muted); margin-top: 10px; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #eef4ec; color: #3e7458; font-size: 11px; }
+  #err {
+    display: none; position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 20;
+    background: #fff2ef; border: 1px solid #e6a295; color: #8d3528;
+    padding: 10px 12px; border-radius: 10px; font-size: 12px; white-space: pre-wrap;
+    max-height: 40%; overflow: auto;
+  }
+  @media (max-width: 640px) {
+    .panel { width: calc(100% - 24px); left: 12px; top: 12px; max-height: 52%; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div class="panel">
+  <h1>奥园中央墅 · 梁添任的家</h1>
+  <div class="sub">独立预览 / 小区 + 别墅 + 室内 <span id="phaseBadge" class="badge">上午</span></div>
+
+  <div class="group">
+    <div class="group-title">时间与光照</div>
+    <div class="row">
+      <span>时刻</span>
+      <input id="hourRange" type="range" min="0" max="24" step="0.1" value="9" />
+      <span class="value" id="hourValue">09:00</span>
+    </div>
+    <div class="buttons">
+      <button data-hour="6.2">清晨</button>
+      <button data-hour="9">上午</button>
+      <button data-hour="12.5">正午</button>
+      <button data-hour="18.2">傍晚</button>
+      <button data-hour="21" class="primary">夜晚</button>
+      <button id="autoTime" class="primary">自动流转</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-title">视角</div>
+    <div class="buttons">
+      <button data-view="overview">小区鸟瞰</button>
+      <button data-view="yard">别墅正面</button>
+      <button data-view="living">一楼客厅</button>
+      <button data-view="bedroom">二楼卧室</button>
+      <button data-view="backyard">后院</button>
+      <button data-view="gate">小区大门</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-title">楼层与主角</div>
+    <div class="buttons">
+      <button data-spot="yard">院门口</button>
+      <button data-spot="living">一楼客厅</button>
+      <button data-spot="stair">楼梯中段</button>
+      <button data-spot="bedroom2">二楼卧室</button>
+      <button data-spot="study2">二楼书房</button>
+      <button data-spot="backyard">后院</button>
+    </div>
+    <div class="hint" id="floorInfo">点一下按位置验证楼层接管与碰撞体分层</div>
+  </div>
+
+  <div class="group">
+    <div class="group-title">调试</div>
+    <div class="row">
+      <label><input id="showColliders" type="checkbox" /> 显示碰撞体</label>
+    </div>
+    <div class="row">
+      <label><input id="followPlayer" type="checkbox" checked /> 使用场景提供的仿真主角</label>
+    </div>
+    <div class="hint" id="sceneInfo">场景加载中…</div>
+  </div>
+
+  <div class="hint">
+    鼠标左键旋转、右键平移、滚轮缩放。<br />
+    本页需通过本地 HTTP 服务打开（如 <code>python -m http.server</code>），<br />
+    不能直接双击 file:// 打开。
+  </div>
+</div>
+
+<div id="err"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { createScene, meta } from './index.js';
+
+const errBox = document.getElementById('err');
+function showError(message) {
+  errBox.style.display = 'block';
+  errBox.textContent += (errBox.textContent ? '\n' : '') + message;
+  console.error(message);
+}
+window.addEventListener('error', (e) => showError('脚本错误：' + (e.message || e.error)));
+window.addEventListener('unhandledrejection', (e) => showError('Promise 错误：' + (e.reason && e.reason.message ? e.reason.message : e.reason)));
+
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xdce8dc, 120, 260);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(34, 27, 42);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(20, 2, -6);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 2;
+controls.maxDistance = 180;
+
+// --- 预览用灯光（正式环境由核心世界统一管理，场景本身不创建方向光/环境光） ---
+const hemi = new THREE.HemisphereLight(0xdfeaf6, 0x7a8b70, 0.55);
+scene.add(hemi);
+const ambient = new THREE.AmbientLight(0xfff6e8, 0.22);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xfff2d6, 1.4);
+sun.position.set(-60, 80, 40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -90;
+sun.shadow.camera.right = 90;
+sun.shadow.camera.top = 90;
+sun.shadow.camera.bottom = -90;
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = 260;
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+
+// --- 时间桩 ---
+const timeStub = {
+  hour: 9,
+  getState() {
+    const hour = timeStub.hour;
+    let phase = 'morning';
+    if (hour < 5) phase = 'night';
+    else if (hour < 7) phase = 'dawn';
+    else if (hour < 10) phase = 'morning';
+    else if (hour < 13) phase = 'noon';
+    else if (hour < 17) phase = 'afternoon';
+    else if (hour < 19.5) phase = 'dusk';
+    else phase = 'night';
+    const isNight = hour >= 19.5 || hour < 5.2;
+    const daylight = Math.max(0, Math.min(1, Math.sin(((hour - 6) / 12) * Math.PI)));
+    return {
+      hour,
+      phase,
+      isNight,
+      sunColor: isNight ? '#8fa6c9' : '#fff0cc',
+      sunIntensity: isNight ? 0.05 : 0.6 + daylight * 0.9,
+      ambientColor: isNight ? '#6d7fa5' : '#fff5e2',
+      ambientIntensity: isNight ? 0.18 : 0.32,
+      skyColor: isNight ? '#1c2940' : '#cfe4f2',
+      fogColor: isNight ? '#22314a' : '#dce8dc',
+      fogDensity: 0.004,
+    };
+  },
+};
+
+// --- 主角桩 ---
+const playerStub = {
+  group: new THREE.Group(),
+  state: { baseY: 0, vy: 0, grounded: true, bounce: 0 },
+};
+playerStub.group.position.set(0, 0, 0);
+
+const colliders = [];
+const colliderHelpers = new THREE.Group();
+colliderHelpers.visible = false;
+scene.add(colliderHelpers);
+
+let homeScene = null;
+try {
+  homeScene = createScene({
+    THREE,
+    scene,
+    time: timeStub,
+    player: playerStub,
+    registerInteractable: () => {},
+    registerCollider: (collider) => colliders.push(collider),
+  });
+  document.getElementById('sceneInfo').innerHTML =
+    `场景 <b>${meta.title}</b><br/>交互点 ${homeScene.interactables.length} 个 · 碰撞体 ${colliders.length} 个<br/>` +
+    homeScene.interactables.map((it) => `<span class="badge">${it.label}</span>`).join(' ');
+} catch (e) {
+  showError('场景创建失败：' + (e && e.stack ? e.stack : e));
+}
+
+// 碰撞体可视化
+const colliderMat = new THREE.MeshBasicMaterial({ color: 0x53a36c, transparent: true, opacity: 0.28, depthWrite: false });
+colliders.forEach((c) => {
+  const w = c.w || c.width;
+  const d = c.d || c.depth;
+  const h = c.h || c.height || 1;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), colliderMat);
+  mesh.position.set(c.x, (c.y || 0) + h / 2, c.z);
+  colliderHelpers.add(mesh);
+});
+
+// --- 预览天空与太阳 ---
+const skyColors = {
+  night: new THREE.Color(0x1c2740),
+  dawn: new THREE.Color(0x8fa8c4),
+  morning: new THREE.Color(0xcfe4f2),
+  noon: new THREE.Color(0xbfdcf5),
+  afternoon: new THREE.Color(0xd6e7ef),
+  dusk: new THREE.Color(0xf0b389),
+};
+function applyTimeLighting() {
+  const state = timeStub.getState();
+  const phase = state.phase;
+  const sky = skyColors[phase] || skyColors.morning;
+  scene.background = sky;
+  scene.fog.color.copy(sky).lerp(new THREE.Color(0xffffff), 0.18);
+
+  const daylight = Math.max(0, Math.min(1, Math.sin(((timeStub.hour - 6) / 12) * Math.PI)));
+  const sunAngle = ((timeStub.hour - 6) / 12) * Math.PI;
+  sun.position.set(Math.cos(sunAngle) * 80, Math.sin(sunAngle) * 80 + 4, 40);
+  sun.intensity = phase === 'night' ? 0.02 : 0.5 + daylight * 1.3;
+  sun.color.set(phase === 'dusk' ? 0xffb873 : phase === 'dawn' ? 0xffd8b0 : 0xfff2d6);
+  hemi.intensity = phase === 'night' ? 0.18 : 0.35 + daylight * 0.4;
+  ambient.intensity = phase === 'night' ? 0.15 : 0.18 + daylight * 0.15;
+  renderer.toneMappingExposure = phase === 'night' ? 0.9 : 1.05;
+
+  const hour = timeStub.hour;
+  const hh = Math.floor(hour).toString().padStart(2, '0');
+  const mm = Math.floor((hour % 1) * 60).toString().padStart(2, '0');
+  document.getElementById('hourValue').textContent = `${hh}:${mm}`;
+  const labels = { dawn: '清晨', morning: '上午', noon: '正午', afternoon: '下午', dusk: '傍晚', night: '夜晚' };
+  document.getElementById('phaseBadge').textContent = labels[phase] || phase;
+}
+applyTimeLighting();
+
+// --- 交互 ---
+const hourRange = document.getElementById('hourRange');
+hourRange.addEventListener('input', () => {
+  timeStub.hour = parseFloat(hourRange.value);
+  autoTime = false;
+  document.getElementById('autoTime').classList.remove('primary');
+  applyTimeLighting();
+});
+document.querySelectorAll('button[data-hour]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    timeStub.hour = parseFloat(btn.dataset.hour);
+    hourRange.value = String(timeStub.hour);
+    autoTime = false;
+    document.getElementById('autoTime').classList.remove('primary');
+    applyTimeLighting();
+  });
+});
+let autoTime = false;
+document.getElementById('autoTime').addEventListener('click', (e) => {
+  autoTime = !autoTime;
+  e.target.classList.toggle('primary', autoTime);
+});
+
+const views = {
+  overview: { pos: [34, 27, 42], target: [20, 2, -8] },
+  yard: { pos: [0, 9, 22], target: [0, 2.4, -7] },
+  living: { pos: [-1.2, 2.9, -8.6], target: [-6.8, 1.0, -12.6] },
+  bedroom: { pos: [2.2, 4.9, -8.4], target: [-8.2, 3.7, -13.2] },
+  backyard: { pos: [0, 12, -22], target: [0, 1, -35] },
+  gate: { pos: [62, 12, 36], target: [96, 3, 20] },
+};
+document.querySelectorAll('button[data-view]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const view = views[btn.dataset.view];
+    if (!view) return;
+    camera.position.set(...view.pos);
+    controls.target.set(...view.target);
+    controls.update();
+  });
+});
+
+document.getElementById('showColliders').addEventListener('change', (e) => {
+  colliderHelpers.visible = e.target.checked;
+});
+
+// --- 楼层验证（把仿真主角放到指定位置，跑一帧查看层高接管结果） ---
+const spots = {
+  yard: { x: 0, z: 7, y: 0 },
+  living: { x: -6.5, z: -11.5, y: 0 },
+  stair: { x: 9.4, z: -18.7, y: 1.6 },
+  bedroom2: { x: -8, z: -11, y: 3.2 },
+  study2: { x: 9, z: -9, y: 3.2 },
+  backyard: { x: 0, z: -35, y: 0 },
+};
+document.querySelectorAll('button[data-spot]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const s = spots[btn.dataset.spot];
+    if (!s) return;
+    playerStub.group.position.set(s.x, s.y, s.z);
+    playerStub.state.baseY = s.y;
+    playerStub.state.vy = 0;
+    playerStub.state.grounded = s.y < 0.1;
+    if (homeScene) homeScene.update(1 / 60, 0);
+    const fs = homeScene && homeScene.debug ? homeScene.debug.floorState : null;
+    const on1 = colliders.filter((c) => c.floor === 1 && c.minX < 1000).length;
+    const on2 = colliders.filter((c) => c.floor === 2 && c.minX < 1000).length;
+    document.getElementById('floorInfo').textContent =
+      `位置 (${s.x}, ${s.z}) · baseY=${playerStub.state.baseY.toFixed(2)} · y=${playerStub.group.position.y.toFixed(2)}` +
+      ` · 楼层=${fs ? fs.floor : 0} · 启用的家具碰撞 一层 ${on1} / 二层 ${on2}`;
+  });
+});
+document.getElementById('followPlayer').addEventListener('change', (e) => {
+  if (homeScene) homeScene.group.visible = true;
+  if (e.target.checked) {
+    playerStub.group.position.set(0, 0, 0);
+    playerStub.state.baseY = 0;
+    playerStub.state.grounded = true;
+  }
+});
+
+// --- 渲染循环 ---
+const clock = new THREE.Clock();
+let elapsed = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  elapsed += dt;
+
+  if (autoTime) {
+    timeStub.hour = (timeStub.hour + dt * 0.18) % 24;
+    hourRange.value = String(timeStub.hour);
+    applyTimeLighting();
+  }
+
+  if (homeScene) homeScene.update(dt, elapsed);
+  hemi.position.copy(camera.position);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// 供自动化验证读取
+window.__homePreview = {
+  scene: homeScene,
+  colliders,
+  timeStub,
+  playerStub,
+  getReady: () => Boolean(homeScene),
+};
+</script>
+</body>
+</html>
